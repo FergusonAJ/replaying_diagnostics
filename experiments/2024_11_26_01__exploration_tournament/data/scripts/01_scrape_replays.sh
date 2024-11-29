@@ -43,7 +43,9 @@ num_trials=50
 rep_list=("043")
 
 output_file=../01_replay_data.csv
-echo "exp_name,rep_id,replay_gen,trial_id,gen,replay_gen,fitness_mean,fitness_max,scores_entropy,scores_unique,collective_score" > $output_file
+#echo "exp_name,rep_id,replay_gen,trial_id,gen,replay_gen,fitness_mean,fitness_max,scores_entropy,scores_unique,collective_score" > $output_file
+echo "exp_name,rep_id,trial_id,gen,replay_gen,fitness_mean,fitness_max,scores_entropy,scores_unique,collective_score" > $output_file
+
 #for dir_name in $( ls ${SCRATCH_REP_DIR} )
 for dir_name in ${rep_list[@]}
 do

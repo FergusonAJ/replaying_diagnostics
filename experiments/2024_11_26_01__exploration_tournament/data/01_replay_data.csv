@@ -1,4 +1,4 @@
-exp_name,rep_id,replay_gen,trial_id,gen,replay_gen,fitness_mean,fitness_max,scores_entropy,scores_unique,collective_score
+exp_name,rep_id,trial_id,gen,replay_gen,fitness_mean,fitness_max,scores_entropy,scores_unique,collective_score
 2024_11_26_01__exploration_tournament,043,1,49900,100,7885.69,9900,3.98579,198,9900
 2024_11_26_01__exploration_tournament,043,2,49900,100,7890.25,9900,4.17893,208,9900
 2024_11_26_01__exploration_tournament,043,3,49900,100,7417.23,9900,4.5622,228,9900
