@@ -1,5 +1,7 @@
 #!/bin/bash
 
+REP_LIST=(43)
+
 # This file creates and fills the experiment's directory on scratch. 
 # It then creates the job's sbatch file and adds the job to roll_q (unless it's a mock job)
 
@@ -122,46 +124,54 @@ echo "Sending generated slurm job file to dir: ${SCRATCH_SLURM_JOB_DIR}"
 echo "Sending slurm output files to dir: ${SCRATCH_SLURM_OUT_DIR}"
 echo " "
 
-# Create output sbatch file, and find/replace key info
-sed -e "s/(<EXP_NAME>)/${EXP_NAME}/g" 00_job_template_evolution.sb > out.sb
-ESCAPED_SCRATCH_SLURM_OUT_DIR=$( escape_slashes ${SCRATCH_SLURM_OUT_DIR} )
-sed -i -e "s/(<SCRATCH_SLURM_OUT_DIR>)/${ESCAPED_SCRATCH_SLURM_OUT_DIR}/g" out.sb
-ESCAPED_SCRATCH_EXP_DIR=$( escape_slashes ${SCRATCH_EXP_DIR} )
-sed -i -e "s/(<SCRATCH_EXP_DIR>)/${ESCAPED_SCRATCH_EXP_DIR}/g" out.sb
-ESCAPED_SCRATCH_FILE_DIR=$( escape_slashes ${SCRATCH_FILE_DIR} )
-sed -i -e "s/(<SCRATCH_FILE_DIR>)/${ESCAPED_SCRATCH_FILE_DIR}/g" out.sb
+for rep_id in ${REP_LIST[@]}
+do
 
-# Move output sbatch file to final destination, and add to roll_q queue if needed
-TIMESTAMP=$( get_timestamp )
-SLURM_FILENAME=${SCRATCH_SLURM_JOB_DIR}/${EXP_NAME}__${TIMESTAMP}.sb
-mv out.sb ${SLURM_FILENAME} 
-echo ""
-if [ ${IS_MOCK} -gt 0 ]
-then
-  # Make file executable
-  chmod u+x ${SLURM_FILENAME}
-  # Create a script to run the whole batch
-  LOCAL_BATCH_RUNNER=${SCRATCH_SLURM_JOB_DIR}/run_batch__${TIMESTAMP}.sh
-  echo "#!/bin/bash" > ${LOCAL_BATCH_RUNNER}
-  chmod u+x ${LOCAL_BATCH_RUNNER}
-  ARRAY_LINE=$( grep ${SLURM_FILENAME} -Pe "#SBATCH --array" )
-  ARRAY_RANGE=$( echo "${ARRAY_LINE}" | grep -Po "\d+-\d+$" )
-  ARRAY_START=$( echo "${ARRAY_RANGE}" | grep -oP "^\d+" )
-  ARRAY_STOP=$( echo "${ARRAY_RANGE}" | grep -oP "\d+$" )
-  OUTPUT_LINE=$( grep ${SLURM_FILENAME} -Poe "(?<=#SBATCH --output=).+$" )
-  echo "OUTPUT_FILE_TEMPLATE=${OUTPUT_LINE/\%A/${TIMESTAMP}}" >> ${LOCAL_BATCH_RUNNER}
-  echo "for TASK_ID in \$( seq ${ARRAY_START} ${ARRAY_STOP} )" >> ${LOCAL_BATCH_RUNNER}
-  echo "do" >> ${LOCAL_BATCH_RUNNER}
-  echo "  echo \"Running task \${TASK_ID}\" locally!" >> ${LOCAL_BATCH_RUNNER}
-  echo "  ( export SLURM_ARRAY_TASK_ID=\${TASK_ID} ; ${SLURM_FILENAME} -m -l ) > \${OUTPUT_FILE_TEMPLATE/\%a/\${TASK_ID}}" >> ${LOCAL_BATCH_RUNNER}
-  echo "done" >> ${LOCAL_BATCH_RUNNER}
-  echo "Finished preparing *mock* jobs."
-  echo "To run the whole batch, execute:"
-  echo "  ${LOCAL_BATCH_RUNNER}"
-else
-  echo "${SLURM_FILENAME}" >> ${ROLL_Q_DIR}/roll_q_job_array.txt
-  echo "Finished preparing jobs."
-  echo "Run roll_q to queue jobs. roll_q directory:"
-  echo "${ROLL_Q_DIR}"
-fi
-echo ""
+  echo "Preparing replays for replicate: ${rep_id}"
+  # Create output sbatch file, and find/replace key info
+  sed -e "s/(<EXP_NAME>)/${EXP_NAME}/g" 02_job_template_replays.sb > out.sb
+  ESCAPED_SCRATCH_SLURM_OUT_DIR=$( escape_slashes ${SCRATCH_SLURM_OUT_DIR} )
+  sed -i -e "s/(<SCRATCH_SLURM_OUT_DIR>)/${ESCAPED_SCRATCH_SLURM_OUT_DIR}/g" out.sb
+  ESCAPED_SCRATCH_EXP_DIR=$( escape_slashes ${SCRATCH_EXP_DIR} )
+  sed -i -e "s/(<SCRATCH_EXP_DIR>)/${ESCAPED_SCRATCH_EXP_DIR}/g" out.sb
+  ESCAPED_SCRATCH_FILE_DIR=$( escape_slashes ${SCRATCH_FILE_DIR} )
+  sed -i -e "s/(<SCRATCH_FILE_DIR>)/${ESCAPED_SCRATCH_FILE_DIR}/g" out.sb
+  sed -i -e "s/(<REP_ID>)/${rep_id}/g" out.sb
+
+  # Move output sbatch file to final destination, and add to roll_q queue if needed
+  TIMESTAMP=$( get_timestamp )
+  SLURM_FILENAME=${SCRATCH_SLURM_JOB_DIR}/${EXP_NAME}__replay_${rep_id}__${TIMESTAMP}.sb
+  mv out.sb ${SLURM_FILENAME} 
+  echo ""
+  if [ ${IS_MOCK} -gt 0 ]
+  then
+    # Make file executable
+    chmod u+x ${SLURM_FILENAME}
+    # Create a script to run the whole batch
+    LOCAL_BATCH_RUNNER=${SCRATCH_SLURM_JOB_DIR}/run_batch__${TIMESTAMP}.sh
+    echo "#!/bin/bash" > ${LOCAL_BATCH_RUNNER}
+    chmod u+x ${LOCAL_BATCH_RUNNER}
+    ARRAY_LINE=$( grep ${SLURM_FILENAME} -Pe "#SBATCH --array" )
+    ARRAY_RANGE=$( echo "${ARRAY_LINE}" | grep -Po "\d+-\d+$" )
+    ARRAY_START=$( echo "${ARRAY_RANGE}" | grep -oP "^\d+" )
+    ARRAY_STOP=$( echo "${ARRAY_RANGE}" | grep -oP "\d+$" )
+    OUTPUT_LINE=$( grep ${SLURM_FILENAME} -Poe "(?<=#SBATCH --output=).+$" )
+    echo "OUTPUT_FILE_TEMPLATE=${OUTPUT_LINE/\%A/${TIMESTAMP}}" >> ${LOCAL_BATCH_RUNNER}
+    echo "for TASK_ID in \$( seq ${ARRAY_START} ${ARRAY_STOP} )" >> ${LOCAL_BATCH_RUNNER}
+    echo "do" >> ${LOCAL_BATCH_RUNNER}
+    echo "  echo \"Running task \${TASK_ID}\" locally!" >> ${LOCAL_BATCH_RUNNER}
+    echo "  ( export SLURM_ARRAY_TASK_ID=\${TASK_ID} ; ${SLURM_FILENAME} -m -l ) > \${OUTPUT_FILE_TEMPLATE/\%a/\${TASK_ID}}" >> ${LOCAL_BATCH_RUNNER}
+    echo "done" >> ${LOCAL_BATCH_RUNNER}
+    echo "Finished preparing *mock* jobs."
+    echo "To run the whole batch, execute:"
+    echo "  ${LOCAL_BATCH_RUNNER}"
+  else
+    echo "${SLURM_FILENAME}" >> ${ROLL_Q_DIR}/roll_q_job_array.txt
+    echo "Finished preparing jobs."
+    echo "Run roll_q to queue jobs. roll_q directory:"
+    echo "${ROLL_Q_DIR}"
+  fi
+  echo ""
+
+done
+

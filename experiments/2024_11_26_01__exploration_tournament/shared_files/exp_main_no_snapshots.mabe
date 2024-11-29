@@ -1,0 +1,150 @@
+random_seed = 0;           // Seed for random number generator; use 0 to base on time.
+Population main_pop;       // Collection of organisms
+Population next_pop;       // Collection of organisms
+Var pop_size = 500;        // Local value variable.
+Var generations = 50000;   // Local value variable.
+Var selection_type = 0;    // 0 = tournament, 1 = lexicase, 2 = fitness sharing, 
+                           //   3 = epsilon lexicase, 4 = random
+Var diagnostic = 2;        // 0 = exploit, 1 = struct_exploit, 2 = explore, 
+                           //   3 = diversity, 4 = weak_diversity
+
+EvalDiagnostic eval_diagnostic { // Evaluate set of values with a specified diagnostic problem.
+  vals_trait = "vals";       // Which trait stores the values to evaluate?
+  scores_trait = "scores";   // Which trait should we store revised scores in?
+  total_trait = "fitness";   // Which trait should we store the total score in?
+  diagnostic = "diversity";  // Which Diagnostic should we use?
+                             //  exploit: All values must independently optimize to the max.
+                             //  struct_exploit: Values must decrease from begining 
+                             //     AND optimize.
+                             //  explore: Only count max value and decreasing values after it.
+                             //  diversity: Only count max value; all others must be low.
+                             //  weak_diversity: Only count max value; all others locked at zero.
+};
+
+
+//SelectFitnessSharing select_f { // Select the top fitness organisms from random subgroups for replication.
+//  tournament_size = 8;          // Number of orgs in each tournament
+//
+//  fitness_trait = "fitness";    // Which trait provides the fitness value to use?
+// sharing_trait = "vals";       // Which trait should we do fitness sharing based on?
+//  alpha = 1;                    // Sharing function exponent
+//  sharing_threshold = 2;// How similar things need to be to share fitness
+//};
+
+SelectTournament select_tourny { // Select the top fitness organisms from random subgroups for replication.
+  tournament_size = 7;          // Number of orgs in each tournament
+  fitness_fun = "fitness";    // Which trait provides the fitness value to use?
+};
+
+SelectLexicase select_l {       // Shuffle traits each time an organism is chose for replication.
+  fitness_traits = "scores";          // Which traits provide the fitness values to use?
+  epsilon = 0.5;                  // Range from max value to be preserved? (fraction of max)
+  sample_traits = 0;            // Number of test cases to use each generation (0=all)
+};
+
+//AnalyzeSystematics sys {        // Module to track the population's phylogeny.
+//  store_outside = 0;            // Store all taxa that ever existed.(1 = TRUE)
+//  store_ancestors = 1;          // Store all ancestors of extant taxa.(1 = TRUE)
+//  taxon_info = "scores";    // Which trait should we identify unique taxa based on
+//  data_file_name = "phylogenetic_data.csv";// Filename for systematics data file.
+//  snapshot_file_root_name = "phylogeny";// Filename for snapshot files (will have update number and .csv appended to end)
+//  snapshot_updates = "0:10000000:20000";    // Which updates should we output a snapshot of the phylogeny?
+//  data_updates = "0:10";       // Which updates should we output a data from the phylogeny?
+//};
+
+ValsOrg vals_org {              // Organism consisting of a series of N floating-point values.
+  N = 100;                      // Number of values in organism
+  mut_prob = 0.01;              // Probability of each value mutating on reproduction.
+  mut_size = 1;                 // Standard deviation on size of mutations.
+  min_value = 0;                // Lower limit for value fields.
+  max_value = 100;              // Upper limit for value fields.
+  lower_bound = "clamp";      // How should the lower limit be enforced?
+                                //  no_limit: Allow values to be arbirarily low.
+                                //  clamp: Reduce too-low values to min_value.
+                                //  wrap: Make low values loop around to maximum.
+                                //  rebound: Make low values 'bounce' back up.
+  upper_bound = "clamp";      // How should the upper limit be enforced?
+                                //  no_limit: Allow values to be arbirarily high.
+                                //  clamp: Reduce too-high values to max_value.
+                                //  wrap: Make high values loop around to minimum.
+                                //  rebound: Make high values 'bounce' back down.
+  genome_name = "vals";         // Name of variable to contain set of values.
+  total_name = "total";         // Name of variable to contain total of all values.
+  init_random = 0;              // Should we randomize ancestor?  (0 = all 0.0)
+};
+
+DataFile fit_file { filename="output.csv"; };
+fit_file.ADD_COLUMN( "Generation", "ud" );
+fit_file.ADD_COLUMN( "Mean Fitness", "main_pop.CALC_MEAN('fitness')" );
+fit_file.ADD_COLUMN( "Maximum Fitness", "main_pop.CALC_MAX('fitness')" );
+fit_file.ADD_COLUMN( "scores:entropy", "main_pop.CALC_ENTROPY('scores')" ); 
+fit_file.ADD_COLUMN( "scores:unique", "main_pop.CALC_RICHNESS('scores')" ); 
+fit_file.ADD_COLUMN( "CollectiveScore", "eval_diagnostic.COLLECTIVE_SCORE(main_pop)");
+//fit_file.ADD_COLUMN( "Mean Pairwise Distance", "sys.CheckMeanPairwiseDistance()");
+
+
+@START() {
+  IF(selection_type != 3){select_l.epsilon=0;};
+  IF(selection_type == 4){select_tourny.tournament_size = 1;};
+
+  IF(diagnostic==0){eval_diagnostic.diagnostic="exploit";};
+  IF(diagnostic==1){eval_diagnostic.diagnostic="struct_exploit";};
+  IF(diagnostic==2){eval_diagnostic.diagnostic="explore";};
+  IF(diagnostic==3){eval_diagnostic.diagnostic="diversity";};
+  IF(diagnostic==4){eval_diagnostic.diagnostic="weak_diversity";};
+
+  PRINT("\nConfiguration:");
+  PRINT("random_seed = ", random_seed);  
+  PRINT("selection_type = ", selection_type);  
+  PRINT("tournament_size = ", select_tourny.tournament_size);  
+  PRINT("generations = ", generations);  
+  PRINT("pop_size = ", pop_size);  
+  PRINT("Diagnostic = ", eval_diagnostic.diagnostic, "\n");
+
+  main_pop.INJECT("vals_org", pop_size);       // Inject starting population.
+}
+
+@UPDATE(Var ud) {
+  IF (ud == generations) EXIT();
+
+  eval_diagnostic.EVAL(main_pop);
+
+  IF(ud % 100 == 0){
+    PRINT("UD:", GET_UPDATE(),
+          "  MainPopSize=", main_pop.SIZE(),
+          "  AveFitness=", main_pop.CALC_MEAN("fitness"),
+          "  MaxFitness=", main_pop.CALC_MAX("fitness"),
+          "  CollectiveScore=", eval_diagnostic.COLLECTIVE_SCORE(main_pop),
+          //"  MeanPairwiseDistance=", sys.CheckMeanPairwiseDistance(),
+         );
+    fit_file.WRITE();
+  }
+
+  IF(selection_type == 0) {
+    // Tournament Selection
+    select_tourny.SELECT(main_pop, next_pop, pop_size);
+  }
+
+  IF(selection_type == 1) {
+    // Lexicase selection
+    select_l.SELECT(main_pop, next_pop, pop_size);
+  }
+  
+//  IF(selection_type == 2) {
+    // Fitness Sharing selection
+//    select_f.SELECT(main_pop, next_pop, pop_size);
+//  }
+  
+  IF(selection_type == 3) {
+    // epsilon lexicase selection
+    select_l.SELECT(main_pop, next_pop, pop_size);
+  }
+  
+  IF(selection_type == 4) {
+    // random selection
+    select_tourny.SELECT(main_pop, next_pop, pop_size);
+  }
+  
+
+  main_pop.REPLACE_WITH(next_pop);
+}
