@@ -1,6 +1,6 @@
 #!/bin/bash
 
-REP_LIST=(43)
+REP_LIST=(9)
 
 # This file creates and fills the experiment's directory on scratch. 
 # It then creates the job's sbatch file and adds the job to roll_q (unless it's a mock job)
