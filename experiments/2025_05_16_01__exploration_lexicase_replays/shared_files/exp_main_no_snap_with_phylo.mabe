@@ -32,15 +32,15 @@ SelectLexicase select_l {       // Shuffle traits each time an organism is chose
   sample_traits = 0;            // Number of test cases to use each generation (0=all)
 };
 
-//AnalyzeSystematics sys {        // Module to track the population's phylogeny.
-//  store_outside = 0;            // Store all taxa that ever existed.(1 = TRUE)
-//  store_ancestors = 1;          // Store all ancestors of extant taxa.(1 = TRUE)
-//  taxon_info = "vals";    // Which trait should we identify unique taxa based on
-//  data_file_name = "phylogenetic_data.csv";// Filename for systematics data file.
-//  snapshot_file_root_name = "phylogeny";// Filename for snapshot files (will have update number and .csv appended to end)
-//  snapshot_updates = "0:10000000:10000";    // Which updates should we output a snapshot of the phylogeny?
-//  data_updates = "0:10";       // Which updates should we output a data from the phylogeny?
-//};
+AnalyzeSystematics sys {        // Module to track the population's phylogeny.
+  store_outside = 0;            // Store all taxa that ever existed.(1 = TRUE)
+  store_ancestors = 1;          // Store all ancestors of extant taxa.(1 = TRUE)
+  taxon_info = "vals";    // Which trait should we identify unique taxa based on
+  data_file_name = "phylogenetic_data.csv";// Filename for systematics data file.
+  snapshot_file_root_name = "phylogeny";// Filename for snapshot files (will have update number and .csv appended to end)
+  snapshot_updates = "0:10000000:10000";    // Which updates should we output a snapshot of the phylogeny?
+  data_updates = "0:10";       // Which updates should we output a data from the phylogeny?
+};
 
 ValsOrg vals_org {              // Organism consisting of a series of N floating-point values.
   N = 100;                      // Number of values in organism
